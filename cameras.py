@@ -3,7 +3,7 @@
 init_cameras.py
 ---------------
 Raspberry Pi Camera Initialization & Test Script
-Kombucha Fermentation Project
+BSC project of Ruben Schmid 
 
 Run this script once before starting autonomous capture to:
   - Verify each camera is detected and responsive
