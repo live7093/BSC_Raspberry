@@ -37,7 +37,7 @@ INIT_OUTPUT_DIR = os.path.join(PROJECT_DIR, "init_test_shots")
 
 # --- Resolution ---
 WIDTH  = 1920
-HEIGHT = 1080
+HEIGHT = 2400
 
 # --- Focus mode ---
 # "manual"    → fix lens to MANUAL_LENS_POSITION (0.0 = infinity, higher = closer)
