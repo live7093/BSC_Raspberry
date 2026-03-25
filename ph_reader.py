@@ -2,79 +2,70 @@ import serial
 import serial.tools.list_ports
 import time
 
+# ── 2-point calibration ───────────────────────────────────────
+VREF    = 3.3
+ADC_MAX = 65535
+
+V_PH7 = 1.121   # measured with pH 7 buffer (raw 22250)
+V_PH4 = 1.550   # measured with pH 4 buffer
+
+SLOPE  = (V_PH4 - V_PH7) / (4.0 - 7.0)   # = -0.143 V/pH
+OFFSET = 7.0 - (V_PH7 / SLOPE)            # derived intercept
+
+def convert_to_ph(raw_value):
+    voltage = (raw_value / ADC_MAX) * VREF
+    ph = (voltage - V_PH7) / SLOPE + 7.0
+    return round(voltage, 3), round(max(0.0, min(14.0, ph)), 2)
+
+# ── Serial connection ─────────────────────────────────────────
 def find_pico_port():
-    """Auto-detect the Pico's USB serial port."""
-    ports = serial.tools.list_ports.comports()
-    for port in ports:
-        # Pico shows up as MicroPython or with specific USB IDs
-        if 'MicroPython' in (port.description or '') or \
-           'Pico' in (port.description or '') or \
-           (port.vid == 0x2E8A):  # Raspberry Pi vendor ID
-            print(f"Found Pico on: {port.device}")
+    for port in serial.tools.list_ports.comports():
+        if port.vid == 0x2E8A or \
+           'MicroPython' in (port.description or '') or \
+           'Pico' in (port.description or ''):
             return port.device
     return None
 
-def convert_to_ph(raw_value, vref=3.3, adc_bits=16):
-    """
-    Convert raw ADC value to pH.
-    Adjust the formula based on your specific pH sensor's datasheet.
-    Typical Grove pH sensor: pH = 7 - ((voltage - 2.5) / 0.18)
-    """
-    voltage = (raw_value / 65535) * vref
-    ph = 7.0 - ((voltage - 2.5) / 0.18)
-    ph = max(0.0, min(14.0, ph))  # Clamp to valid pH range
-    return voltage, ph
-
 def main():
-    # --- 1. Find the Pico port ---
     port = find_pico_port()
     if not port:
-        print("Pico not found. Available ports:")
-        for p in serial.tools.list_ports.comports():
-            print(f"  {p.device} - {p.description} (VID:{p.vid})")
-        print("\nSet port manually, e.g.: port = '/dev/ttyACM0'")
+        print("Pico not found. Try manually setting port = '/dev/ttyACM0'")
         return
 
-    # --- 2. Open serial connection ---
-    try:
-        ser = serial.Serial(
-            port=port,
-            baudrate=115200,
-            timeout=2
-        )
-        print(f"Connected to Pico on {port} at 115200 baud\n")
-        time.sleep(1)  # Allow connection to stabilise
-        ser.reset_input_buffer()
+    ser = serial.Serial(port=port, baudrate=115200, timeout=2)
+    print(f"Connected on {port}")
+    print(f"Calibration: pH4={V_PH4}V  pH7={V_PH7}V  slope={SLOPE:.4f} V/pH\n")
+    time.sleep(1)
+    ser.reset_input_buffer()
 
-    except serial.SerialException as e:
-        print(f"Failed to open port: {e}")
-        print("Try: sudo chmod 666 /dev/ttyACM0  (or add user to 'dialout' group)")
-        return
-
-    # --- 3. Read and process data ---
-    print(f"{'Time':<12} {'Raw ADC':<12} {'Voltage':<12} {'pH':<8}")
-    print("-" * 44)
+    print(f"{'Time':<12} {'Raw ADC':<12} {'Voltage (V)':<14} {'pH':<8} {'Quality'}")
+    print("─" * 56)
 
     try:
         while True:
             line = ser.readline().decode('utf-8').strip()
-
             if line:
                 try:
-                    raw_value = int(line)
-                    voltage, ph = convert_to_ph(raw_value)
-                    timestamp = time.strftime("%H:%M:%S")
-                    print(f"{timestamp:<12} {raw_value:<12} {voltage:<12.3f} {ph:<8.2f}")
+                    raw = int(line)
+                    voltage, ph = convert_to_ph(raw)
+                    ts = time.strftime("%H:%M:%S")
 
+                    # Simple quality flag
+                    if ph < 1 or ph > 13:
+                        quality = "⚠ check sensor"
+                    elif voltage < 0.2 or voltage > 3.1:
+                        quality = "⚠ check wiring"
+                    else:
+                        quality = "ok"
+
+                    print(f"{ts:<12} {raw:<12} {voltage:<14.3f} {ph:<8} {quality}")
                 except ValueError:
-                    print(f"[Non-numeric data]: {line}")
+                    print(f"[Non-numeric]: {line}")
 
     except KeyboardInterrupt:
-        print("\nStopped by user.")
-
+        print("\nStopped.")
     finally:
         ser.close()
-        print("Serial connection closed.")
 
 if __name__ == "__main__":
     main()
