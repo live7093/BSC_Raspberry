@@ -134,33 +134,43 @@ def test_ph():
 
 
 # ════════════════════════════════════════════════════════════
-#  4 – LEDs (GPIO 10)
+#  4 – LEDs (NeoPixel SPI)
 # ════════════════════════════════════════════════════════════
 
 def test_led():
-    header("LEDs  (GPIO 10)")
+    header("LEDs  (NeoPixel SPI — 56 LEDs, brightness 0.1)")
     try:
-        import RPi.GPIO as GPIO
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
-        GPIO.setup(10, GPIO.OUT, initial=GPIO.LOW)
-
-        print("  → LEDs ON  for 2 seconds — check visually …")
-        GPIO.output(10, GPIO.HIGH)
-        time.sleep(2)
-        GPIO.output(10, GPIO.LOW)
-        GPIO.cleanup()
-        print("  → LEDs OFF")
-
-        # We can't auto-verify brightness, so ask the user
-        ans = input("  Did the LEDs light up? [y/n]: ").strip().lower()
-        ok  = ans == "y"
-        result("LED illumination", ok)
-        return ok
-    except Exception as e:
-        result("LED (GPIO 10)", False, str(e))
-        print("  Tip: RPi.GPIO requires root or gpio group membership")
+        import board
+        import neopixel_spi as neospi
+        result("Library import", True)
+    except ImportError as e:
+        result("Library import", False, str(e))
+        print("  Tip: pip3 install adafruit-circuitpython-neopixel-spi --break-system-packages")
         return False
+
+    try:
+        spi    = board.SPI()
+        pixels = neospi.NeoPixel_SPI(spi, 56, brightness=0.1,
+                                     auto_write=False, pixel_order=neospi.GRB)
+        result("NeoPixel SPI init", True)
+    except Exception as e:
+        result("NeoPixel SPI init", False, str(e))
+        print("  Tip: SPI enabled? raspi-config → Interfaces → SPI")
+        return False
+
+    print("  → Full white ON for 3 seconds — check all 56 LEDs …")
+    pixels.fill((255, 255, 255))
+    pixels.show()
+    time.sleep(3)
+    pixels.fill((0, 0, 0))
+    pixels.show()
+    print("  → LEDs OFF")
+
+    ans = input("  Did all 56 LEDs light up? [y/n]: ").strip().lower()
+    ok  = ans == "y"
+    result("LED illumination", ok,
+           "If only first 16 lit: power supply too weak (needs ~0.34A for 56 LEDs at 0.1)")
+    return ok
 
 
 # ════════════════════════════════════════════════════════════
@@ -259,7 +269,7 @@ def main():
     results["Pico / pH probe"] = (
         test_ph()    if (run_all or args.ph)     else None
     )
-    results["LEDs (GPIO 10)"] = (
+    results["LEDs (NeoPixel SPI)"] = (
         test_led()   if (run_all or args.led)    else None
     )
     results["Camera + LEDs"] = (
