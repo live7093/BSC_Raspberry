@@ -26,7 +26,7 @@ try:
     pixels = neospi.NeoPixel_SPI(
         _spi,
         56,
-        brightness=0.5,
+        brightness=0.1,
         auto_write=False,
         pixel_order=neospi.GRB,
     )
