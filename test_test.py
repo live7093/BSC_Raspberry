@@ -1,0 +1,10 @@
+import board, neopixel_spi as neospi, time
+spi = board.SPI()
+pixels = neospi.NeoPixel_SPI(spi, 56, brightness=0.1, auto_write=False)
+print('SPI OK, sending data...')
+pixels.fill((255,255,255))
+pixels.show()
+print('Done - LEDs should be on')
+time.sleep(5)
+pixels.fill((0,0,0))
+pixels.show()

@@ -48,12 +48,12 @@ INIT_OUTPUT_DIR = os.path.join(PROJECT_DIR, "init_test_shots")
 
 LED_WARMUP_S    = 1.0        # seconds to wait after LEDs on before capture
 
-WIDTH    = 1920
-HEIGHT   = 1080
+WIDTH    = 2400
+HEIGHT   = 2400
 AWB_MODE = "auto"
 
 FOCUS_MODE           = "manual"
-MANUAL_LENS_POSITION = 0.0
+MANUAL_LENS_POSITION = 4.5
 
 SHUTTER_SPEED_US   = None
 ANALOGUE_GAIN      = None

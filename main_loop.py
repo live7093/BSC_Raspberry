@@ -40,18 +40,18 @@ PROJECT_DIR = "/home/schmiru/Kombucha_Fermentation"
 
 # ── Recipe ───────────────────────────────────────────────────
 RECIPE = SimConfig(
-    tea_g_l        = 8.0,
+    tea_g_l        = 10.0,
     inoculum_pct   = 10.0,
-    sugar_g_l      = 100.0,
-    temp_c         = 25.0,
-    is_green_tea   = False,
-    total_days     = 10.0,
+    sugar_g_l      = 40.0,
+    temp_c         = 22.0,
+    is_green_tea   = True,
+    total_days     = 7.0,
     tol_ph         = 0.3,
-    tol_temp_c     = 2.0,
+    tol_temp_c     = 4.0,
 )
 
 # ── Timing ───────────────────────────────────────────────────
-MEASURE_INTERVAL_S = 60 * 30   # sensor reading every 30 min
+MEASURE_INTERVAL_S = 60 * 15   # sensor reading every 30 min
 CAMERA_INTERVAL_S  = 60 * 60   # photo every 60 min
 
 # ── Cameras  ─────────────────────────────────────────────────
