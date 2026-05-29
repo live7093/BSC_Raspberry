@@ -259,18 +259,13 @@ class FermentationSim:
             return self.cfg.temp_c
         return round(sum(pts) / len(pts), 3)
 
-    def at(self, day: float) -> TimePoint:
-        """Return the expected fermentation state at `day`.
+    def at_static(self, day: float) -> TimePoint:
+        """Interpolate from the pre-computed curve — always uses cfg.temp_c.
 
-        Dynamic mode with at least one temperature reading: evaluates the
-        regression model directly at (day, effective_temp) — no curve
-        interpolation needed.
-        Static mode (or dynamic before first reading): interpolates from
-        the pre-computed curve built with cfg.temp_c.
+        This is the "recipe as planned" prediction and never changes during
+        a run regardless of measured temperatures.  Use it alongside at()
+        to see how much the dynamic model has drifted from the original plan.
         """
-        if self.cfg.temp_mode == "dynamic" and self._temp_history:
-            return self._point_at(day, self.effective_temp(day))
-        # ── static / fallback ────────────────────────────────
         if day <= 0:
             return self.curve[0]
         if day >= self.cfg.total_days:
@@ -292,6 +287,17 @@ class FermentationSim:
                     aab         = a.aab         + frac * (b.aab         - a.aab),
                 )
         return self.curve[-1]
+
+    def at(self, day: float) -> TimePoint:
+        """Return the expected fermentation state at `day`.
+
+        Dynamic mode with at least one temperature reading: evaluates the
+        regression model at (day, effective_temp) — tracks actual room temp.
+        Static mode (or dynamic before first reading): delegates to at_static().
+        """
+        if self.cfg.temp_mode == "dynamic" and self._temp_history:
+            return self._point_at(day, self.effective_temp(day))
+        return self.at_static(day)
 
     def _point_at(self, day: float, temp: float) -> TimePoint:
         """Evaluate the regression model at a single (day, temp) point.

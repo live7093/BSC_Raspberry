@@ -84,6 +84,12 @@ LOG_FIELDS = [
     "temp_measured", "temp_expected", "temp_deviation", "temp_status",
     "sim_eff_temp",        # effective temp used by model (= temp_c in static, running mean in dynamic)
     "humidity",
+    # ── Static simulation: recipe as planned (always temp_c, never changes) ──
+    "static_ph", "static_sucrose", "static_glucose", "static_fructose",
+    "static_ethanol", "static_acetic_acid", "static_yeasts", "static_aab",
+    # ── Dynamic simulation: updated each cycle with actual room temperature ──
+    "dyn_ph", "dyn_sucrose", "dyn_glucose", "dyn_fructose",
+    "dyn_ethanol", "dyn_acetic_acid", "dyn_yeasts", "dyn_aab",
     "image_cam0",          # filename or "" if capture failed
     "image_cam1",          # reserved for second camera
 ]
@@ -250,6 +256,27 @@ def main():
                         row["temp_status"]    = v.status
 
                 row["sim_eff_temp"] = sim.effective_temp(day)
+
+                # ── Static vs dynamic simulation points ───────
+                s = sim.at_static(day)
+                row["static_ph"]          = s.pH
+                row["static_sucrose"]     = s.sucrose
+                row["static_glucose"]     = s.glucose
+                row["static_fructose"]    = s.fructose
+                row["static_ethanol"]     = s.ethanol
+                row["static_acetic_acid"] = s.acetic_acid
+                row["static_yeasts"]      = s.yeasts
+                row["static_aab"]         = s.aab
+
+                d = sim.at(day)
+                row["dyn_ph"]          = d.pH
+                row["dyn_sucrose"]     = d.sucrose
+                row["dyn_glucose"]     = d.glucose
+                row["dyn_fructose"]    = d.fructose
+                row["dyn_ethanol"]     = d.ethanol
+                row["dyn_acetic_acid"] = d.acetic_acid
+                row["dyn_yeasts"]      = d.yeasts
+                row["dyn_aab"]         = d.aab
 
                 append_log(row)
 
