@@ -81,6 +81,8 @@ LOG_FIELDS = [
     "ph_source",           # "auto" or "manual" (triggered from Pico LCD)
     "ph_v_ph7",            # calibration voltage at pH 7 (from Pico cal.json)
     "ph_v_ph4",            # calibration voltage at pH 4 (from Pico cal.json)
+    "weight_g",            # absolute vessel weight [g] from HX711
+    "weight_delta_g",      # weight change since run start [g] (tracks CO₂ loss)
     "temp_measured", "temp_expected", "temp_deviation", "temp_status",
     "sim_eff_temp",        # effective temp used by model (= temp_c in static, running mean in dynamic)
     "humidity",
@@ -234,11 +236,15 @@ def main():
 
                 # ── Fill log row ──────────────────────────────
                 if ph_reading:
-                    row["ph_measured"] = ph_reading.ph
-                    row["ph_voltage"]  = ph_reading.voltage
-                    row["ph_source"]   = ph_reading.source
-                    row["ph_v_ph7"]    = ph_reading.v_ph7
-                    row["ph_v_ph4"]    = ph_reading.v_ph4
+                    row["ph_measured"]    = ph_reading.ph
+                    row["ph_voltage"]     = ph_reading.voltage
+                    row["ph_source"]      = ph_reading.source
+                    row["ph_v_ph7"]       = ph_reading.v_ph7
+                    row["ph_v_ph4"]       = ph_reading.v_ph4
+                    if ph_reading.weight_g is not None:
+                        row["weight_g"]       = ph_reading.weight_g
+                    if ph_reading.weight_delta_g is not None:
+                        row["weight_delta_g"] = ph_reading.weight_delta_g
                     save_calibration(ph_reading)
 
                 if hum is not None:
@@ -281,12 +287,15 @@ def main():
                 append_log(row)
 
                 # ── Console print ─────────────────────────────
-                ph_str   = f"{ph_reading.ph:.2f} ({ph_reading.source})" if ph_reading else "—"
+                ph_str  = f"{ph_reading.ph:.2f} ({ph_reading.source})" if ph_reading else "—"
+                wt_str  = (f"{ph_reading.weight_g:.0f}g "
+                           f"(Δ{ph_reading.weight_delta_g:+.1f}g)"
+                           if ph_reading and ph_reading.weight_g is not None else "—")
                 temp_str = f"{temp:.1f}°C" if temp is not None else "—"
                 hum_str  = f"{hum:.1f}%" if hum is not None else "—"
                 eff_str  = (f"  eff_temp={sim.effective_temp(day):.2f}°C"
                             if RECIPE.temp_mode == "dynamic" else "")
-                print(f"[{ts}]  day={day:.3f}  pH={ph_str}  temp={temp_str}  hum={hum_str}{eff_str}")
+                print(f"[{ts}]  day={day:.3f}  pH={ph_str}  wt={wt_str}  temp={temp_str}  hum={hum_str}{eff_str}")
 
                 # ── Deviation alerts ──────────────────────────
                 if result.any_deviation:

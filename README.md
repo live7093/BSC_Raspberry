@@ -361,6 +361,8 @@ One row per sensor cycle (every 15 min) and one row per camera cycle (every 60 m
 | `ph_source` | `auto` (periodic) or `manual` (triggered via Pico LCD) |
 | `ph_v_ph7` | Calibration voltage at pH 7 [V] |
 | `ph_v_ph4` | Calibration voltage at pH 4 [V] |
+| `weight_g` | Absolute vessel weight [g] from HX711 load cell |
+| `weight_delta_g` | Weight change since run start [g] — tracks CO₂ loss (negative = mass lost) |
 | `temp_measured` | Measured temperature [°C] |
 | `temp_expected` | Target temperature from recipe [°C] |
 | `temp_deviation` | \|measured − target\| |

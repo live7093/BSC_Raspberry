@@ -39,12 +39,14 @@ from typing import Optional
 
 @dataclass
 class PHReading:
-    ph:      float
-    voltage: float
-    v_ph7:   float
-    v_ph4:   float
-    source:  str        # "auto" | "manual"
-    raw_line: str = ""
+    ph:             float
+    voltage:        float
+    v_ph7:          float
+    v_ph4:          float
+    source:         str           # "auto" | "manual"
+    weight_g:       Optional[float] = None   # absolute weight [g], None if not sent
+    weight_delta_g: Optional[float] = None   # CO₂ loss since run start [g], None if not sent
+    raw_line:       str = ""
 
 
 # ════════════════════════════════════════════════════════════
@@ -133,12 +135,14 @@ class PicoReader:
             try:
                 data = json.loads(raw)
                 return PHReading(
-                    ph       = float(data["ph"]),
-                    voltage  = float(data["voltage"]),
-                    v_ph7    = float(data["v_ph7"]),
-                    v_ph4    = float(data["v_ph4"]),
-                    source   = str(data.get("source", "auto")),
-                    raw_line = raw,
+                    ph             = float(data["ph"]),
+                    voltage        = float(data["voltage"]),
+                    v_ph7          = float(data["v_ph7"]),
+                    v_ph4          = float(data["v_ph4"]),
+                    source         = str(data.get("source", "auto")),
+                    weight_g       = float(data["weight_g"])       if "weight_g"       in data else None,
+                    weight_delta_g = float(data["weight_delta_g"]) if "weight_delta_g" in data else None,
+                    raw_line       = raw,
                 )
             except (json.JSONDecodeError, KeyError, ValueError) as e:
                 print(f"[ph_reader] Parse error ({e}): {raw}")
