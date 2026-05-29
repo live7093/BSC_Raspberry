@@ -26,7 +26,7 @@ try:
     pixels = neospi.NeoPixel_SPI(
         _spi,
         56,
-        brightness=0.1,
+        brightness=0.5,
         auto_write=False,
         pixel_order=neospi.GRB,
     )
@@ -52,9 +52,10 @@ WIDTH    = 2400
 HEIGHT   = 2400
 AWB_MODE = "auto"
 
-FOCUS_MODE           = "manual"
-MANUAL_LENS_POSITION = 4.5
-
+FOCUS_MODE           = "auto"
+AUTOFOCUS_RANGE      = "macro"
+MANUAL_LENS_POSITION = 5.4
+#4.9 für ersten Strich
 SHUTTER_SPEED_US   = None
 ANALOGUE_GAIN      = None
 CAPTURE_TIMEOUT_MS = 5000

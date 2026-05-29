@@ -13,7 +13,7 @@ SPI pin on RPi:  GPIO 10 (Pin 19) = MOSI  ->  LED data line
 
 import time
 
-LED_COUNT      = 56
+LED_COUNT      = 58
 LED_BRIGHTNESS = 0.5   # 0.0 - 1.0  (keep low for bench testing)
 
 try:
