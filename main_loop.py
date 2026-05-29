@@ -193,8 +193,10 @@ def main():
              if RECIPE.temp_mode == "dynamic" else f"  (fixed {RECIPE.temp_c}°C)"))
     print("[main] Starting loop — press Ctrl-C to stop\n")
 
-    last_measure = 0.0
-    last_camera  = 0.0
+    # Initialise to -interval so the very first loop iteration fires both
+    # cycles immediately, regardless of how long the Pi has been running.
+    last_measure = -MEASURE_INTERVAL_S
+    last_camera  = -CAMERA_INTERVAL_S
 
     try:
         while True:
