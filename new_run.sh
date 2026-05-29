@@ -37,9 +37,10 @@ if [ -f "$DATA_DIR/sensor_log.csv" ] || [ -d "$DATA_DIR/images" ]; then
     ARCHIVE="$DATA_DIR/$RUN_NAME"
     mkdir -p "$ARCHIVE"
 
-    [ -f "$DATA_DIR/sensor_log.csv" ]      && mv "$DATA_DIR/sensor_log.csv"      "$ARCHIVE/" && echo "  Archived sensor_log.csv"
-    [ -d "$DATA_DIR/images" ]              && mv "$DATA_DIR/images"              "$ARCHIVE/" && echo "  Archived images/"
-    [ -f "$DATA_DIR/.start_time" ]         && mv "$DATA_DIR/.start_time"         "$ARCHIVE/" && echo "  Archived .start_time"
+    [ -f "$DATA_DIR/sensor_log.csv" ]       && mv "$DATA_DIR/sensor_log.csv"       "$ARCHIVE/" && echo "  Archived sensor_log.csv"
+    [ -d "$DATA_DIR/images" ]               && mv "$DATA_DIR/images"               "$ARCHIVE/" && echo "  Archived images/"
+    [ -f "$DATA_DIR/.start_time" ]          && mv "$DATA_DIR/.start_time"          "$ARCHIVE/" && echo "  Archived .start_time"
+    [ -f "$DATA_DIR/calibration.json" ]     && mv "$DATA_DIR/calibration.json"     "$ARCHIVE/" && echo "  Archived calibration.json"
     [ -f "$DATA_DIR/simulation_curve.csv" ] && cp "$DATA_DIR/simulation_curve.csv" "$ARCHIVE/" && echo "  Copied simulation_curve.csv"
 
     echo "  → Saved to $ARCHIVE"

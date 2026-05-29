@@ -22,6 +22,7 @@ CAMERA_INDICES list below is the only thing that needs changing.
 """
 
 import csv
+import json
 import os
 import time
 from datetime import datetime
@@ -73,6 +74,8 @@ LOG_FIELDS = [
     "timestamp", "day",
     "ph_measured", "ph_voltage", "ph_expected", "ph_deviation", "ph_status",
     "ph_source",           # "auto" or "manual" (triggered from Pico LCD)
+    "ph_v_ph7",            # calibration voltage at pH 7 (from Pico cal.json)
+    "ph_v_ph4",            # calibration voltage at pH 4 (from Pico cal.json)
     "temp_measured", "temp_expected", "temp_deviation", "temp_status",
     "humidity",
     "image_cam0",          # filename or "" if capture failed
@@ -106,6 +109,28 @@ def append_log(row: dict) -> None:
         if write_header:
             writer.writeheader()
         writer.writerow({f: row.get(f, "") for f in LOG_FIELDS})
+
+
+CAL_FILE = os.path.join(PROJECT_DIR, "calibration.json")
+
+def save_calibration(reading) -> None:
+    """Write pH calibration voltages to calibration.json once per run.
+
+    Called on the first successful Pico reading so the file is always
+    present in the run folder when new_run.sh archives it.
+    """
+    if os.path.exists(CAL_FILE):
+        return   # already written for this run
+    data = {
+        "saved_at":  datetime.now().isoformat(timespec="seconds"),
+        "v_ph7":     reading.v_ph7,
+        "v_ph4":     reading.v_ph4,
+        "source":    reading.source,
+    }
+    with open(CAL_FILE, "w") as fh:
+        json.dump(data, fh, indent=2)
+    print(f"[cal]  Calibration saved → {CAL_FILE}  "
+          f"(pH7={reading.v_ph7:.3f} V  pH4={reading.v_ph4:.3f} V)")
 
 
 # ════════════════════════════════════════════════════════════
@@ -193,6 +218,9 @@ def main():
                     row["ph_measured"] = ph_reading.ph
                     row["ph_voltage"]  = ph_reading.voltage
                     row["ph_source"]   = ph_reading.source
+                    row["ph_v_ph7"]    = ph_reading.v_ph7
+                    row["ph_v_ph4"]    = ph_reading.v_ph4
+                    save_calibration(ph_reading)
 
                 if hum is not None:
                     row["humidity"] = hum
