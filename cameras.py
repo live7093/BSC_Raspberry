@@ -52,9 +52,9 @@ WIDTH    = 2400
 HEIGHT   = 2400
 AWB_MODE = "auto"
 
-FOCUS_MODE           = "auto"
-AUTOFOCUS_RANGE      = "macro"
-MANUAL_LENS_POSITION = 5.4
+FOCUS_MODE           = "manual"
+AUTOFOCUS_RANGE      = "macro"      # kept for reference, unused while FOCUS_MODE = "manual"
+MANUAL_LENS_POSITION = 5.4          # update after running focus_test.py
 #4.9 für ersten Strich
 SHUTTER_SPEED_US   = None
 ANALOGUE_GAIN      = None
