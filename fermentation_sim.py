@@ -161,8 +161,17 @@ class SimConfig:
     tea_g_l:        float = 8.0     # g/L  (1–10)
     inoculum_pct:   float = 10.0    # %    (1–10)
     sugar_g_l:      float = 100.0   # g/L  (40–100)
-    temp_c:         float = 25.0    # °C   (20–30)
+    temp_c:         float = 25.0    # °C   (20–30)  target / starting estimate
     is_green_tea:   bool  = False   # False = black tea
+
+    # Temperature mode
+    #   "static"  – use temp_c for the entire run (original behaviour)
+    #   "dynamic" – feed measured HTU21D readings into the model via
+    #               sim.update_temp(); expected values update each cycle
+    #               using the time-weighted mean of all readings so far.
+    #               temp_c is still used as the target for the temp-deviation
+    #               alert and as the fallback before the first reading arrives.
+    temp_mode:      str   = "static"   # "static" | "dynamic"
 
     # Run
     total_days:     float = 10.0
@@ -218,12 +227,50 @@ class FermentationSim:
 
     def __init__(self, config: SimConfig):
         self.cfg   = config
-        self.curve = self._compute()
+        self.curve = self._compute()           # always built with cfg.temp_c
+        self._temp_history: list = []          # (day, temp) pairs — dynamic mode
 
     # ── Public API ───────────────────────────────────────────
 
+    def update_temp(self, day: float, temp: float) -> None:
+        """Record a temperature reading for dynamic-mode updates.
+
+        Has no effect in static mode.  Call this every time the HTU21D
+        returns a new measurement so the expected-value calculations stay
+        in sync with the actual room temperature.
+        """
+        if self.cfg.temp_mode == "dynamic":
+            self._temp_history.append((day, temp))
+
+    def effective_temp(self, up_to_day: float) -> float:
+        """Return the temperature the model is currently using.
+
+        Static mode  → always cfg.temp_c.
+        Dynamic mode → arithmetic mean of all recorded readings up to
+                       up_to_day (equally-spaced 15-min samples make this
+                       equivalent to a proper time-weighted integral).
+                       Falls back to cfg.temp_c until the first reading
+                       arrives.
+        """
+        if self.cfg.temp_mode != "dynamic":
+            return self.cfg.temp_c
+        pts = [t for d, t in self._temp_history if d <= up_to_day + 1e-9]
+        if not pts:
+            return self.cfg.temp_c
+        return round(sum(pts) / len(pts), 3)
+
     def at(self, day: float) -> TimePoint:
-        """Interpolate curve at any fractional day."""
+        """Return the expected fermentation state at `day`.
+
+        Dynamic mode with at least one temperature reading: evaluates the
+        regression model directly at (day, effective_temp) — no curve
+        interpolation needed.
+        Static mode (or dynamic before first reading): interpolates from
+        the pre-computed curve built with cfg.temp_c.
+        """
+        if self.cfg.temp_mode == "dynamic" and self._temp_history:
+            return self._point_at(day, self.effective_temp(day))
+        # ── static / fallback ────────────────────────────────
         if day <= 0:
             return self.curve[0]
         if day >= self.cfg.total_days:
@@ -231,7 +278,7 @@ class FermentationSim:
         for i in range(1, len(self.curve)):
             b = self.curve[i]
             if b.t >= day:
-                a   = self.curve[i - 1]
+                a    = self.curve[i - 1]
                 frac = (day - a.t) / (b.t - a.t)
                 return TimePoint(
                     t           = day,
@@ -245,6 +292,32 @@ class FermentationSim:
                     aab         = a.aab         + frac * (b.aab         - a.aab),
                 )
         return self.curve[-1]
+
+    def _point_at(self, day: float, temp: float) -> TimePoint:
+        """Evaluate the regression model at a single (day, temp) point.
+
+        Runs 8 single-element polynomial evaluations — fast enough to call
+        on every sensor cycle without pre-building a full curve.
+        """
+        factors = [
+            self.cfg.tea_g_l,
+            self.cfg.inoculum_pct,
+            self.cfg.sugar_g_l,
+            temp,
+            1 if self.cfg.is_green_tea else 0,
+        ]
+        t = [day]
+        return TimePoint(
+            t           = day,
+            pH          = round(predict_time_series("pH",          factors, t)[0], 5),
+            sucrose     = round(predict_time_series("Sucrose",     factors, t)[0], 5),
+            glucose     = round(predict_time_series("Glucose",     factors, t)[0], 5),
+            fructose    = round(predict_time_series("Fructose",    factors, t)[0], 5),
+            ethanol     = round(predict_time_series("Ethanol",     factors, t)[0], 5),
+            acetic_acid = round(predict_time_series("Acetic acid", factors, t)[0], 3),
+            yeasts      = round(predict_time_series("Yeasts",      factors, t)[0], 5),
+            aab         = round(predict_time_series("AAB",         factors, t)[0], 5),
+        )
 
     def check_deviation(
         self,

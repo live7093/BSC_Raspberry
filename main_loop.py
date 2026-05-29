@@ -44,11 +44,16 @@ RECIPE = SimConfig(
     tea_g_l        = 10.0,
     inoculum_pct   = 10.0,
     sugar_g_l      = 40.0,
-    temp_c         = 22.0,
+    temp_c         = 22.0,   # target / room-temp estimate
     is_green_tea   = True,
     total_days     = 7.0,
     tol_ph         = 0.3,
     tol_temp_c     = 4.0,
+    #
+    # "static"  → use temp_c for the whole run (simple, predictable)
+    # "dynamic" → feed each HTU21D reading into the model so expected
+    #             values track the real room temperature over time
+    temp_mode      = "dynamic",
 )
 
 # ── Timing ───────────────────────────────────────────────────
@@ -77,6 +82,7 @@ LOG_FIELDS = [
     "ph_v_ph7",            # calibration voltage at pH 7 (from Pico cal.json)
     "ph_v_ph4",            # calibration voltage at pH 4 (from Pico cal.json)
     "temp_measured", "temp_expected", "temp_deviation", "temp_status",
+    "sim_eff_temp",        # effective temp used by model (= temp_c in static, running mean in dynamic)
     "humidity",
     "image_cam0",          # filename or "" if capture failed
     "image_cam1",          # reserved for second camera
@@ -174,6 +180,9 @@ def main():
     print(f"[main] Sensor interval      : {MEASURE_INTERVAL_S // 60} min")
     print(f"[main] Camera interval      : {CAMERA_INTERVAL_S  // 60} min")
     print(f"[main] Active cameras       : {CAMERA_INDICES}")
+    print(f"[main] Temp mode            : {RECIPE.temp_mode}"
+          + (f"  (target {RECIPE.temp_c}°C, updates from HTU21D each cycle)"
+             if RECIPE.temp_mode == "dynamic" else f"  (fixed {RECIPE.temp_c}°C)"))
     print("[main] Starting loop — press Ctrl-C to stop\n")
 
     last_measure = 0.0
@@ -206,6 +215,10 @@ def main():
                     except Exception as e:
                         print(f"[htu] Read error: {e}")
 
+                # Feed temperature into the dynamic model
+                if temp is not None:
+                    sim.update_temp(day, temp)
+
                 # ── Deviation check ───────────────────────────
                 result = sim.check_deviation(
                     day           = day,
@@ -236,13 +249,17 @@ def main():
                         row["temp_deviation"] = v.deviation
                         row["temp_status"]    = v.status
 
+                row["sim_eff_temp"] = sim.effective_temp(day)
+
                 append_log(row)
 
                 # ── Console print ─────────────────────────────
                 ph_str   = f"{ph_reading.ph:.2f} ({ph_reading.source})" if ph_reading else "—"
                 temp_str = f"{temp:.1f}°C" if temp is not None else "—"
                 hum_str  = f"{hum:.1f}%" if hum is not None else "—"
-                print(f"[{ts}]  day={day:.3f}  pH={ph_str}  temp={temp_str}  hum={hum_str}")
+                eff_str  = (f"  eff_temp={sim.effective_temp(day):.2f}°C"
+                            if RECIPE.temp_mode == "dynamic" else "")
+                print(f"[{ts}]  day={day:.3f}  pH={ph_str}  temp={temp_str}  hum={hum_str}{eff_str}")
 
                 # ── Deviation alerts ──────────────────────────
                 if result.any_deviation:
