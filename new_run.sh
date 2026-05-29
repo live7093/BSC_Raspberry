@@ -37,16 +37,29 @@ if [ -f "$DATA_DIR/sensor_log.csv" ] || [ -d "$DATA_DIR/images" ]; then
     ARCHIVE="$DATA_DIR/$RUN_NAME"
     mkdir -p "$ARCHIVE"
 
-    [ -f "$DATA_DIR/sensor_log.csv" ]       && mv "$DATA_DIR/sensor_log.csv"       "$ARCHIVE/" && echo "  Archived sensor_log.csv"
-    [ -d "$DATA_DIR/images" ]               && mv "$DATA_DIR/images"               "$ARCHIVE/" && echo "  Archived images/"
-    [ -f "$DATA_DIR/.start_time" ]          && mv "$DATA_DIR/.start_time"          "$ARCHIVE/" && echo "  Archived .start_time"
-    [ -f "$DATA_DIR/calibration.json" ]     && mv "$DATA_DIR/calibration.json"     "$ARCHIVE/" && echo "  Archived calibration.json"
-    [ -f "$DATA_DIR/simulation_curve.csv" ] && cp "$DATA_DIR/simulation_curve.csv" "$ARCHIVE/" && echo "  Copied simulation_curve.csv"
+    [ -f "$DATA_DIR/sensor_log.csv" ]        && mv "$DATA_DIR/sensor_log.csv"        "$ARCHIVE/" && echo "  Archived sensor_log.csv"
+    [ -d "$DATA_DIR/images" ]                && mv "$DATA_DIR/images"                "$ARCHIVE/" && echo "  Archived images/"
+    [ -f "$DATA_DIR/.start_time" ]           && mv "$DATA_DIR/.start_time"           "$ARCHIVE/" && echo "  Archived .start_time"
+    [ -f "$DATA_DIR/calibration.json" ]      && mv "$DATA_DIR/calibration.json"      "$ARCHIVE/" && echo "  Archived calibration.json"
+    [ -f "$DATA_DIR/ph_verification.json" ]  && mv "$DATA_DIR/ph_verification.json"  "$ARCHIVE/" && echo "  Archived ph_verification.json"
+    [ -f "$DATA_DIR/simulation_curve.csv" ]  && cp "$DATA_DIR/simulation_curve.csv"  "$ARCHIVE/" && echo "  Copied simulation_curve.csv"
 
     echo "  → Saved to $ARCHIVE"
 else
     echo ""
     echo "  No previous run data found — starting fresh."
+fi
+
+# ── pH probe verification ─────────────────────────────────────
+echo ""
+echo "======================================"
+echo "  pH Probe Verification"
+echo "======================================"
+read -p "  Run verify_ph.py? [y/s to skip]: " DO_PH
+if [ "$DO_PH" = "y" ]; then
+    python3 "$CODE_DIR/verify_ph.py" --save "$DATA_DIR/ph_verification.json"
+else
+    echo "  Skipped — remember to verify the probe manually before starting."
 fi
 
 # ── Show current recipe ───────────────────────────────────────
