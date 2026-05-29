@@ -86,6 +86,8 @@ The system consists of two microcontrollers that work together:
 - NeoPixel LEDs draw up to 0.95 A at full white — use an external 5V PSU, not the RPi's 5V pin. Share GND between RPi and PSU.
 - The Pico's USB port handles both power and serial communication. Just plug it into one of the RPi's USB-A ports.
 - pH probe: the glass electrode connects to the BNC adapter on the Grove pH board. Keep it submerged or capped when not in use.
+- HX711 load cell: place the fermentation vessel on the scale **before** starting `main_loop.py`. The Pico zeros the weight delta (`weight_delta_g`) on the first reading after boot, so whatever is on the scale at that moment becomes the baseline. Mass lost during fermentation (CO₂ off-gassing) shows up as an increasingly negative `weight_delta_g`.
+  - Calibration constants in `pico_main.py`: `TARE = -762518`, `SCALE = 396.4` — re-calibrate if the load cell or amplifier board is swapped.
 
 ---
 
@@ -266,7 +268,7 @@ HEIGHT   = 2400
 
 4. **Update the recipe** in `main_loop.py` if needed.
 
-5. **Place the fermentation vessel on the scale.**
+5. **Place the fermentation vessel on the scale** before starting `main_loop.py`. The Pico zeroes `weight_delta_g` on its first reading — anything added to the scale after that will show as drift.
 
 ### Starting a run
 
@@ -362,7 +364,7 @@ One row per sensor cycle (every 15 min) and one row per camera cycle (every 60 m
 | `ph_v_ph7` | Calibration voltage at pH 7 [V] |
 | `ph_v_ph4` | Calibration voltage at pH 4 [V] |
 | `weight_g` | Absolute vessel weight [g] from HX711 load cell |
-| `weight_delta_g` | Weight change since run start [g] — tracks CO₂ loss (negative = mass lost) |
+| `weight_delta_g` | Weight change since run start [g] — tracks CO₂ off-gassing (grows more negative as fermentation progresses) |
 | `temp_measured` | Measured temperature [°C] |
 | `temp_expected` | Target temperature from recipe [°C] |
 | `temp_deviation` | \|measured − target\| |
