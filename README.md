@@ -108,7 +108,7 @@ BSC_Raspberry/
 ├── test.py               Full hardware test suite (all components)
 ├── test_led.py           Quick NeoPixel LED test — blink + colour sweep
 ├── test_htu21.py         Quick HTU21D sensor test — 10 readings, 2 s apart
-├── focus_test.py         Single macro-autofocus test shot (mirrors cameras.py settings)
+├── focus_test.py         Manual lens sweep (positions 3.0–5.0) to find best focus distance
 │
 ├── scale2.py             HX711 load cell test (development/debug use)
 └── scale_test.py         HX711 load cell test with reset sequence (development/debug use)
@@ -123,7 +123,8 @@ BSC_Raspberry/
 │
 ├── sensor_log.csv         Live measurement log (appended every 15 min)
 ├── simulation_curve.csv   Pre-computed expected curve for the current recipe
-├── calibration.json       pH calibration voltages saved on first Pico reading
+├── calibration.json       pH calibration voltages (written on first Pico reading)
+├── ph_verification.json   Pre-run probe check result (written by new_run.sh / verify_ph.py)
 ├── images/                Timestamped camera captures (one per hour)
 ├── .start_time            ISO timestamp of when the current run started
 │
@@ -131,6 +132,7 @@ BSC_Raspberry/
 │   ├── sensor_log.csv
 │   ├── simulation_curve.csv
 │   ├── calibration.json
+│   ├── ph_verification.json
 │   ├── images/
 │   └── .start_time
 └── run_2/ …
@@ -229,10 +231,12 @@ CAMERA_INDICES     = [0]        # list of camera indices; add 1 for second camer
 Camera and LED settings are in **`cameras.py`**:
 
 ```python
-FOCUS_MODE           = "auto"    # "auto" = autofocus, "manual" = fixed lens position
-AUTOFOCUS_RANGE      = "macro"   # "normal" | "macro" | "full"
+FOCUS_MODE           = "manual"  # "manual" = fixed lens position (autofocus non-functional on this setup)
+                                 # "auto"   = autofocus (kept as option; not used in production)
+AUTOFOCUS_RANGE      = "macro"   # "normal" | "macro" | "full" — only used when FOCUS_MODE = "auto"
 MANUAL_LENS_POSITION = 5.4       # only used when FOCUS_MODE = "manual"
                                  # 0.0 = infinity, ~5.0 = ~20 cm, ~10.0 = ~10 cm
+                                 # use focus_test.py to determine the best value for your setup
 WIDTH    = 2400
 HEIGHT   = 2400
 ```
@@ -253,6 +257,7 @@ HEIGHT   = 2400
    python3 verify_ph.py
    ```
    This guides you through pH 7 → rinse → pH 4 and reports pass/warn/fail.
+   > **Note:** `new_run.sh` runs this automatically and saves the result as `ph_verification.json`. If you are starting via `new_run.sh` you don't need to run it manually.
 
 3. **Test all hardware:**
    ```bash
@@ -330,10 +335,11 @@ bash new_run.sh
 ```
 You will be prompted for a name (e.g. `run_1`). The script:
 1. Stops the running process
-2. Moves `sensor_log.csv`, `images/`, `.start_time`, `calibration.json` into `run_1/`
+2. Moves `sensor_log.csv`, `images/`, `.start_time`, `calibration.json`, `ph_verification.json` into `run_1/`
 3. Copies `simulation_curve.csv` into `run_1/`
-4. Shows the current recipe and offers to edit it
-5. Starts the new run
+4. Offers to run `verify_ph.py` (guided probe check, result saved as `ph_verification.json`)
+5. Shows the current recipe and offers to edit it
+6. Starts the new run
 
 ---
 
@@ -359,10 +365,28 @@ One row per sensor cycle (every 15 min) and one row per camera cycle (every 60 m
 | `temp_expected` | Target temperature from recipe [°C] |
 | `temp_deviation` | \|measured − target\| |
 | `temp_status` | `ok` / `warn` / `alert` |
-| `sim_eff_temp` | Temperature currently used by the model (= target in static mode, running mean in dynamic mode) |
+| `sim_eff_temp` | Effective temperature used by the model: equals `temp_c` in static mode; running mean of all HTU21D readings so far in dynamic mode |
 | `humidity` | Relative humidity [%] |
+| `static_ph` | Recipe-as-planned pH (always uses `temp_c`, never changes) |
+| `static_sucrose` | Static sucrose [g/L] |
+| `static_glucose` | Static glucose [g/L] |
+| `static_fructose` | Static fructose [g/L] |
+| `static_ethanol` | Static ethanol [g/L] |
+| `static_acetic_acid` | Static acetic acid [mg/L] |
+| `static_yeasts` | Static yeast count [log₁₀ KBE/ml] |
+| `static_aab` | Static AAB count [log₁₀ KBE/ml] |
+| `dyn_ph` | Temperature-corrected pH (updates as room temp changes) |
+| `dyn_sucrose` | Dynamic sucrose [g/L] |
+| `dyn_glucose` | Dynamic glucose [g/L] |
+| `dyn_fructose` | Dynamic fructose [g/L] |
+| `dyn_ethanol` | Dynamic ethanol [g/L] |
+| `dyn_acetic_acid` | Dynamic acetic acid [mg/L] |
+| `dyn_yeasts` | Dynamic yeast count [log₁₀ KBE/ml] |
+| `dyn_aab` | Dynamic AAB count [log₁₀ KBE/ml] |
 | `image_cam0` | Filename of the photo, or empty if no photo this cycle |
 | `image_cam1` | Reserved for second camera |
+
+> In **static mode**, `static_*` and `dyn_*` columns are identical. In **dynamic mode** they diverge whenever the actual room temperature differs from `temp_c`.
 
 ### `calibration.json`
 
@@ -376,6 +400,21 @@ Written once at the start of each run, on the first successful Pico reading:
   "source": "auto"
 }
 ```
+
+### `ph_verification.json`
+
+Written by `verify_ph.py --save` (called automatically by `new_run.sh`). Records pre-run probe accuracy:
+
+```json
+{
+  "timestamp": "2026-05-29T09:15:00",
+  "ph7": { "average": 7.03, "spread": 0.01, "deviation": 0.03, "status": "pass" },
+  "ph4": { "average": 4.11, "spread": 0.02, "deviation": 0.11, "status": "warn" },
+  "overall": "warn"
+}
+```
+
+`overall` is `"pass"` if both buffers pass (±0.10), `"warn"` if any is within ±0.20, or `"fail"` if outside ±0.20.
 
 ### `simulation_curve.csv`
 
@@ -403,7 +442,17 @@ Files named `cam0_YYYYMMDD_HHMMSS_dayX.XX.jpg`. Resolution: 2400×2400 px.
 | `"static"` | One curve is computed at startup using `temp_c`. Expected values never change. |
 | `"dynamic"` | Each HTU21D reading is recorded. `at(day)` re-evaluates the model using the time-weighted mean of all readings so far. |
 
-Dynamic mode is more accurate when room temperature fluctuates: if the batch spent 5 days at 20°C and 2 days at 24°C, the model uses ~21.1°C (weighted by duration, not just the current reading).
+Dynamic mode is more accurate when room temperature fluctuates: if the batch spent 5 days at 20°C and 2 days at 24°C, the model uses ~21.1°C (arithmetic mean of equally-spaced readings, equivalent to a time-weighted average).
+
+**What gets logged each cycle:**
+
+| CSV columns | Source | Changes during run? |
+|---|---|---|
+| `static_ph` … `static_aab` | `at_static(day)` — recipe as planned, always `temp_c` | ❌ Never — pure recipe baseline |
+| `dyn_ph` … `dyn_aab` | `at(day)` — uses `sim_eff_temp` (running mean of HTU21D readings) | ✅ Yes, as room temp evolves |
+| `sim_eff_temp` | Arithmetic mean of all HTU21D readings up to this point | ✅ Yes, converges over time |
+
+Comparing `static_*` against `dyn_*` in your CSV shows how much the actual room temperature deviated from the recipe target and how that shifted the predicted fermentation trajectory.
 
 **Deviation classification:**
 
@@ -421,28 +470,28 @@ All camera and LED settings are in `cameras.py`. The main loop and `focus_test.p
 
 ### Focus modes
 
-**Macro autofocus (current default):**
-```python
-FOCUS_MODE      = "auto"
-AUTOFOCUS_RANGE = "macro"
-```
-The camera focuses automatically before each shot. Best for close-up fermentation vessel photography.
-
-**Manual focus:**
+**Manual focus (current default — autofocus is non-functional on this setup):**
 ```python
 FOCUS_MODE           = "manual"
 MANUAL_LENS_POSITION = 5.4   # higher = closer focus
                               # 0.0 = infinity  ~2.0 = 50 cm
                               # ~5.0 = 20 cm    ~10.0 = 10 cm
 ```
-Use `focus_test.py` to find the right `MANUAL_LENS_POSITION` for your distance.
+Set `MANUAL_LENS_POSITION` once in `cameras.py`; every capture (main loop + focus_test) will use it.
 
-### Testing focus
+**Autofocus (kept as option, not used in production):**
+```python
+FOCUS_MODE      = "auto"
+AUTOFOCUS_RANGE = "macro"   # "normal" | "macro" | "full"
+```
+> ⚠️ Autofocus does not work reliably on the camera used in this project. Keep `FOCUS_MODE = "manual"`.
+
+### Finding the right lens position
 
 ```bash
 python3 focus_test.py
 ```
-Takes a single shot with the current `cameras.py` settings and saves it as `focus_test.jpg`. This is the fastest way to check if the focus and exposure look right before starting a run.
+Sweeps through lens positions **3.0 → 3.5 → 4.0 → 4.5 → 5.0**, saving one image per position as `focus_3.0.jpg`, `focus_3.5.jpg`, etc. LEDs are on during the sweep. Compare the results, then set `MANUAL_LENS_POSITION` in `cameras.py` to the sharpest value.
 
 ### LED brightness
 
@@ -464,8 +513,8 @@ Range 0.0–1.0. `0.5` is the current default.
 | `python3 test.py --ph` | Test Pico connection and pH reading | If pH fails in main loop |
 | `python3 test.py --led` | Test all 56 LEDs, asks for visual confirmation | After LED hardware changes |
 | `python3 test.py --camera` | Test camera capture with LEDs | After camera changes |
-| `python3 verify_ph.py` | Guided pH 7 → pH 4 probe verification, reports pass/warn/fail | Before every run |
-| `python3 focus_test.py` | Single macro-autofocus test shot → `focus_test.jpg` | After adjusting camera position |
+| `python3 verify_ph.py` | Guided pH 7 → pH 4 probe verification, reports pass/warn/fail. Runs automatically via `new_run.sh --save`; run manually if starting without the script. | Before every run |
+| `python3 focus_test.py` | Lens position sweep (3.0 → 3.5 → 4.0 → 4.5 → 5.0) with LEDs on → compare `focus_*.jpg` to find best `MANUAL_LENS_POSITION` | After adjusting camera distance |
 | `python3 test_led.py` | Blink test + colour sweep for 56 LEDs | LED hardware debug |
 | `python3 test_htu21.py` | 10 temperature/humidity readings, 2 s apart | HTU21D debug |
 
