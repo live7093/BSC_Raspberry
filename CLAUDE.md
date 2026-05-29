@@ -267,3 +267,13 @@ pip3 install RPi.GPIO smbus2 pyserial matplotlib \
 - HTU21D requires **I2C enabled** on RPi (`raspi-config → Interfaces → I2C`)
 - Second camera: change `CAMERA_INDICES = [0, 1]` in `cameras.py` and `main_loop.py`
 - pH tolerance `tol_ph = 2.0` recommended (starter immediately acidifies broth, simulation starts at ~4.6)
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
