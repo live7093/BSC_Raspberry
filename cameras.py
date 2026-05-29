@@ -106,8 +106,9 @@ def build_command(camera_index: int, output_path: str) -> list[str]:
     if FOCUS_MODE == "manual":
         cmd += ["--autofocus-mode", "manual",
                 "--lens-position",  str(MANUAL_LENS_POSITION)]
-    elif FOCUS_MODE == "autofocus":
-        cmd += ["--autofocus-mode", "auto"]
+    elif FOCUS_MODE in ("auto", "autofocus"):
+        cmd += ["--autofocus-mode", "auto",
+                "--autofocus-range", AUTOFOCUS_RANGE]
     if SHUTTER_SPEED_US is not None:
         cmd += ["--shutter", str(SHUTTER_SPEED_US)]
     if ANALOGUE_GAIN is not None:
