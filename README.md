@@ -41,8 +41,8 @@ The system consists of two microcontrollers that work together:
 │  │ Pico (USB) │─────────────→  │   to simulation │  │
 │  │ pH + weight│                │   curve)        │  │
 │  └────────────┘                └─────────────────┘  │
-│  ┌────────────┐  every 60 min                        │
-│  │ Camera     │─────────────→  images/               │
+│  ┌────────────┐  every 60 min                       │
+│  │ Camera     │─────────────→  images/              │
 │  │ + LEDs     │                                     │
 │  └────────────┘                                     │
 └─────────────────────────────────────────────────────┘
