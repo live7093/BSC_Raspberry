@@ -5,7 +5,7 @@
 Automated monitoring system for kombucha fermentation runs. A Raspberry Pi 5 collects sensor data every 15 minutes, compares it against a physics-based simulation model, and takes time-lapse photos every hour — all logged to CSV for later analysis.
 
 > **Work in Progress**  
-> This repository is actively under development. Features may change, break, or be incomplete until the first stable release.
+> This repository is actively under development. Features may change, break, or be incomplete until the final release.
 ---
 
 ## Table of Contents
