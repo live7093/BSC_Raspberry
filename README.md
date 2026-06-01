@@ -1,11 +1,30 @@
 # Kombucha Fermentation Monitor
 
-**BSC Project — Ruben Schmid, ZHAW**
+**BSC Thesis Project — Ruben Schmid · ZHAW Zurich University of Applied Sciences**
 
-Automated monitoring system for kombucha fermentation runs. A Raspberry Pi 5 collects sensor data every 15 minutes, compares it against a physics-based simulation model, and takes time-lapse photos every hour — all logged to CSV for later analysis.
+Autonomous, end-to-end monitoring system for kombucha fermentation runs. A Raspberry Pi 5 collects multi-sensor data every 15 minutes, compares it in real time against a regression-based fermentation model, and takes hourly time-lapse photos — all logged to CSV for post-run analysis. The system runs unattended for 7–10 days per fermentation batch with no manual intervention required.
 
-> **Work in Progress**  
-> This repository is actively under development. Features may change, break, or be incomplete until the final release.
+> ⚠️ **Work in Progress** — This repository is part of an ongoing BSC thesis. Features, structure, and documentation are actively evolving until the final release.
+>
+> This is **one of three repositories** that make up the full project:
+>
+> | Repository | Contents |
+> |---|---|
+> | **BSC_Raspberry** ← you are here | Raspberry Pi data collection, simulation model, camera & LED control |
+> | **BSC_Pico** | MicroPython firmware for the Raspberry Pi Pico (pH + weight sensor node) |
+> | **BSC_Dashboard** | Browser-based fermentation dashboard & visualisation |
+
+---
+
+## Key Technical Highlights
+
+- **Two-microcontroller architecture** — RPi 5 (Python) + RPi Pico (MicroPython) communicate over a self-defined USB-Serial JSON protocol; Pico is auto-detected by USB vendor ID
+- **Fermentation simulation model** — polynomial regression ported from JS to Python, predicting 8 fermentation variables (pH, sugars, ethanol, acetic acid, yeasts, AAB) from 5 recipe parameters
+- **Static vs. dynamic temperature mode** — in dynamic mode the model continuously updates its predictions using the time-weighted mean of live HTU21D readings
+- **Full sensor stack** — pH electrode (2-point calibrated), HX711 load cell (CO₂ tracking via mass loss), HTU21D (temperature/humidity), 56× WS2812B NeoPixels via SPI, RPi camera (CSI)
+- **On-device calibration UI** — full pH 4/7 calibration workflow on a Grove 16×2 LCD with rotary knob and button, no laptop required
+- **Structured data pipeline** — 35+ column CSV log, per-run archiving, shell-script run management
+
 ---
 
 ## Table of Contents
@@ -118,7 +137,7 @@ BSC_Raspberry/
 └── scale_test.py         HX711 load cell test with reset sequence (development/debug use)
 ```
 
-> **Pico firmware** (`pico_main.py`) is a separate file that runs on the Pico itself. It is not part of this repository. Upload it to the Pico as `main.py` using Thonny or `mpremote`.
+> **Pico firmware** (`pico_main.py`) lives in the **BSC_Pico** repository and runs on the Pico itself. Upload it to the Pico as `main.py` using Thonny or `mpremote`.
 
 ### Data directory on Raspberry Pi
 
@@ -153,6 +172,7 @@ BSC_Raspberry/
 - `Interfaces → SPI` → Enable
 
 **Install Python dependencies:**
+
 ```bash
 pip3 install smbus2 pyserial \
              adafruit-circuitpython-neopixel-spi \
@@ -160,6 +180,7 @@ pip3 install smbus2 pyserial \
 ```
 
 **Clone the repo:**
+
 ```bash
 cd /home/schmiru
 git clone <repo-url> BSC_Raspberry
@@ -167,13 +188,14 @@ cd BSC_Raspberry
 ```
 
 **Verify everything works:**
+
 ```bash
 python3 test.py
 ```
 
 ### Pico
 
-1. Open `pico_main.py` in **Thonny** (or use `mpremote`)
+1. Clone **BSC_Pico** and open `pico_main.py` in **Thonny** (or use `mpremote`)
 2. Connect Pico via USB
 3. Save the file to the Pico as **`main.py`**
 4. The Pico will auto-start on power-up
@@ -275,6 +297,7 @@ HEIGHT   = 2400
 ### Starting a run
 
 **Option A — screen session (recommended for development):**
+
 ```bash
 screen -S kombucha
 cd /home/schmiru/BSC_Raspberry
@@ -284,22 +307,26 @@ python3 main_loop.py
 ```
 
 **Option B — systemd:**
+
 ```bash
 sudo systemctl start kombucha
 journalctl -u kombucha -f    # follow live logs
 ```
 
 **Option C — new_run.sh (recommended between runs):**
+
 ```bash
 bash new_run.sh
 ```
+
 This stops the current run, archives the data into a named folder, lets you edit the recipe, and starts fresh.
 
 ### What happens at startup
 
 1. The simulation curve is computed from your recipe and saved to `simulation_curve.csv`
 2. The curve is printed as a table in the console
-3. `calibration.json` is written on the first successful Pico reading
+3. A sensor reading and photo are taken immediately on the first loop tick
+4. `calibration.json` is written on the first successful Pico reading
 
 ### What happens every cycle
 
@@ -337,6 +364,7 @@ tail -f /home/schmiru/Kombucha_Fermentation/sensor_log.csv
 ```bash
 bash new_run.sh
 ```
+
 You will be prompted for a name (e.g. `run_1`). The script:
 1. Stops the running process
 2. Moves `sensor_log.csv`, `images/`, `.start_time`, `calibration.json`, `ph_verification.json` into `run_1/`
@@ -477,19 +505,23 @@ All camera and LED settings are in `cameras.py`. The main loop and `focus_test.p
 ### Focus modes
 
 **Manual focus (current default — autofocus is non-functional on this setup):**
+
 ```python
 FOCUS_MODE           = "manual"
 MANUAL_LENS_POSITION = 5.4   # higher = closer focus
                               # 0.0 = infinity  ~2.0 = 50 cm
                               # ~5.0 = 20 cm    ~10.0 = 10 cm
 ```
+
 Set `MANUAL_LENS_POSITION` once in `cameras.py`; every capture (main loop + focus_test) will use it.
 
 **Autofocus (kept as option, not used in production):**
+
 ```python
 FOCUS_MODE      = "auto"
 AUTOFOCUS_RANGE = "macro"   # "normal" | "macro" | "full"
 ```
+
 > ⚠️ Autofocus does not work reliably on the camera used in this project. Keep `FOCUS_MODE = "manual"`.
 
 ### Finding the right lens position
@@ -497,14 +529,17 @@ AUTOFOCUS_RANGE = "macro"   # "normal" | "macro" | "full"
 ```bash
 python3 focus_test.py
 ```
+
 Sweeps through lens positions **3.0 → 3.5 → 4.0 → 4.5 → 5.0**, saving one image per position as `focus_3.0.jpg`, `focus_3.5.jpg`, etc. LEDs are on during the sweep. Compare the results, then set `MANUAL_LENS_POSITION` in `cameras.py` to the sharpest value.
 
 ### LED brightness
 
 Set in `cameras.py` at the NeoPixel initialisation:
+
 ```python
 pixels = neospi.NeoPixel_SPI(..., brightness=0.5, ...)
 ```
+
 Range 0.0–1.0. `0.5` is the current default.
 
 ---
@@ -519,7 +554,7 @@ Range 0.0–1.0. `0.5` is the current default.
 | `python3 test.py --ph` | Test Pico connection and pH reading | If pH fails in main loop |
 | `python3 test.py --led` | Test all 56 LEDs, asks for visual confirmation | After LED hardware changes |
 | `python3 test.py --camera` | Test camera capture with LEDs | After camera changes |
-| `python3 verify_ph.py` | Guided pH 7 → pH 4 probe verification, reports pass/warn/fail. Runs automatically via `new_run.sh --save`; run manually if starting without the script. | Before every run |
+| `python3 verify_ph.py` | Guided pH 7 → pH 4 probe verification, reports pass/warn/fail. Runs automatically via `new_run.sh`; run manually if starting without the script. | Before every run |
 | `python3 focus_test.py` | Lens position sweep (3.0 → 3.5 → 4.0 → 4.5 → 5.0) with LEDs on → compare `focus_*.jpg` to find best `MANUAL_LENS_POSITION` | After adjusting camera distance |
 | `python3 test_led.py` | Blink test + colour sweep for 56 LEDs | LED hardware debug |
 | `python3 test_htu21.py` | 10 temperature/humidity readings, 2 s apart | HTU21D debug |
@@ -529,23 +564,28 @@ Range 0.0–1.0. `0.5` is the current default.
 ## 11. Troubleshooting
 
 ### Pico not found
+
 ```
 [main] Pico not found — pH readings will be skipped
 ```
+
 - Check USB cable is connected
 - Run `ls /dev/ttyACM*` — should show `/dev/ttyACM0` or `/dev/ttyACM1`
 - Make sure `pico_main.py` is running on the Pico (the LCD should show pH/weight)
 - The port alternates between ACM0 and ACM1 on reconnect — `ph_reader.py` handles this automatically via USB vendor ID
 
 ### HTU21D not found
+
 ```
 [main] HTU21D not available
 ```
+
 - Verify I2C is enabled: `sudo raspi-config → Interfaces → I2C`
 - Check wiring: SDA=Pin3, SCL=Pin5, VCC=3.3V (Pin1), GND
 - Confirm sensor is visible: `i2cdetect -y 1` should show `40`
 
 ### NeoPixel LEDs not lighting up
+
 - SPI must be enabled: `sudo raspi-config → Interfaces → SPI`
 - Data wire must be on GPIO 10 (Pin 19 / MOSI)
 - External 5V PSU required — RPi 5V pin cannot supply enough current
@@ -553,17 +593,20 @@ Range 0.0–1.0. `0.5` is the current default.
 - If only the first ~16 LEDs light up: PSU is too weak
 
 ### Camera capture fails
+
 - Check ribbon cable is seated properly in CAM 0
 - Verify with: `rpicam-still --list-cameras`
 - Camera must not be in use by another process
 
 ### pH readings look wrong after calibration
+
 1. Run `python3 verify_ph.py` — if it fails, recalibrate on the Pico LCD
 2. On the Pico LCD: rotate knob right → `CALIBRATE` → follow prompts
 3. Use fresh pH 4 and pH 7 buffer solutions
 4. Allow the probe 60+ seconds to stabilise in each buffer before confirming
 
 ### pH tolerance alerts at the start of a run
+
 Normal behaviour. The inoculum immediately acidifies the broth, so the measured pH drops faster than the model predicts in the first 12–24 hours. Set `tol_ph = 2.0` in the recipe if alerts are unwanted during this phase.
 
 ---
@@ -579,3 +622,9 @@ pip3 install smbus2 pyserial \
 # Pico (MicroPython — all built-in)
 # machine, time, ujson, sys
 ```
+
+---
+
+## Tech Stack
+
+`Python 3` · `MicroPython` · `Bash` · `I²C` · `SPI` · `USB-Serial` · `GPIO` · `pyserial` · `smbus2` · `Adafruit NeoPixel SPI` · `rpicam-still` · `systemd` · `Git`
